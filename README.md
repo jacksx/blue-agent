@@ -3,6 +3,9 @@
 业务后端把用户消息丢进来，它还回「该说什么 + 该做什么动作」。
 
 > 边界：**约面采集表发出即结束**。到面、入职、佣金不在范围内。
+>
+> 任务与状态：[TODO.md](TODO.md) —— 唯一事实源，做完一项就在那里标 `[x]`。
+> Agent 执行约定：[AGENTS.md](AGENTS.md) —— 开工必读，完成定义包含更新上述文档。
 
 ---
 
@@ -36,6 +39,7 @@ pnpm dev
 | `pwsh -File scripts/unit-check.ps1` | 纯函数 L1（McNemar/TTL/审批/标签/接地/卡片/scope） | 33/33 |
 | `pwsh -File scripts/merge-check.ps1` | 连发合并 + 顺序无关幂等 | 三条 → 一条回复 |
 | `pwsh -File scripts/robust-check.ps1` | 用量 / 改口 / 并发 | 5 并发只有 1 个 traceId |
+| `pwsh -File scripts/todo-check.ps1` | 文档自检：完成项日期、待做项验收、计数一致 | 见输出 |
 
 ---
 
@@ -536,19 +540,16 @@ McNemar  b=2 c=1  χ²=0  p=1  → 不显著
 
 ---
 
-## 还没做的（W5+ / 生产化）
+## 还没做的
 
-| 模块 | 现状 | 差什么 |
-|---|---|---|
-| **多职位切换（§2.9）** | 会话只有一个 active job；已用 `scope: subject` 防止 A 的「能接受班次」带到 B，`person` 硬约束仍跨岗位保留 | `subject_bindings`、按 subject 分层的 `job.*` 槽位、A→B→A 横跳 |
-| **Supabase / Redis** | 会话落盘；快照 / 幂等 / 审批仍在内存 | 接 Postgres + Redis，多实例一致；审批要能跨重启恢复 |
-| **RAG 生产化** | 27 条政策语料 + 本地哈希向量 | 真实语料、bge-m3 向量、人工标注题集、Recall@5 达标 |
-| **标签归一落库** | canonical 字典 + 置信度分流 | `tag_text_mappings` 回写、低置信人工审核队列、按归一化文本缓存 |
-| **跨经纪人转介（§2.13）** | 卡片标了归属顾问 | `referral` payload：把 slots + 摘要带进新会话 |
-| **MCP server** | 工具层已抽象成 `AgentTools` | 7 个 tool / 0 个 resource 的 MCP 封装 |
-| **Playground 回放 / stateless** | 审批卡、策略切换、四栏 + trace 已完成 | JSONL 回放、session/stateless 切换、工具调用面板 |
-| **护栏 L2** | 非文本连续 2 条、no_candidate、unclear 已能转人工 | 情绪/投诉/要求人工/敏感话题的升级信号 |
-| **指标看板** | 只有脚本输出 | 首响 P95、发表率、成本、degraded 趋势 |
+完整清单、优先级、验收标准与更新记录统一维护在 **[TODO.md](TODO.md)**，本文件不再重复维护。
+
+当前 P0：
+
+1. 长期记忆：跨会话候选人画像 + 偏好事件
+2. 审批 / 快照 / 幂等落 Redis/Postgres（重启不丢、多实例一致）
+3. 多职位切换完整模型（subject bindings + 分层 `job.*`）
+4. 鉴权 + 按 `conversationId` 限流
 
 ---
 
@@ -606,7 +607,10 @@ scripts/
   robust-check.ps1           用量 / 改口 / 并发
   llm-check.ps1              模型层验证
   mock-llm.mjs               本地假模型
+  todo-check.ps1             TODO 格式/计数自检
 docs/schema.sql              Supabase 建表（含审批 / 记忆 / 评测）
+AGENTS.md                    agent 执行约定（开工必读）
+TODO.md                      任务清单（唯一事实源，完成即更新）
 ```
 
 `lib/agent/*` **不 import 任何 `next/*`**。换 Fastify / 容器部署时只改 `app/api` 这层 adapter。
@@ -615,10 +619,11 @@ docs/schema.sql              Supabase 建表（含审批 / 记忆 / 评测）
 
 ## 下一步
 
-- **W5**：Supabase + Redis，把会话 / 快照 / 幂等 / 审批从 Map 迁走
-- **W6**：多职位切换完整模型（subject bindings + 分层槽位）
-- **W7**：真实 RAG 语料 + bge-m3 + 人工题集，把 Recall@5 从"小语料饱和"变成可对外报的数
-- **W8**：MCP server + 回放 + stateless 模式 + 指标看板
+优先级、验收标准和状态统一在 [TODO.md](TODO.md)。当前顺序：
+
+1. **P0**：长期记忆（跨会话画像）→ 审批/快照/幂等持久化 → 多职位切换完整模型 → 鉴权 + 按会话限流
+2. **P1**：RAG 生产化（真实语料 + bge-m3 + 标注集）→ 标签归一落库 → 跨经纪人转介 → L2 接管边界 → 回放/stateless → 指标看板
+3. **P2**：MCP server、跨平台岗位池、评测集扩容 + holdout、CI、可观测性
 
 ## 接了真模型之后
 
